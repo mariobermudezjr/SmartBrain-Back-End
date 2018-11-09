@@ -19,89 +19,66 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const dataBase = {
-  users: [
-    {
-      id: '123',
-      name: 'John',
-      email: 'john@gmail.com',
-      password: 'cookies',
-      entries: 0,
-      joined: new Date()
-    },
-    {
-      id: '124',
-      name: 'Mike',
-      email: 'mike@gmail.com',
-      password: 'cookie',
-      entries: 0,
-      joined: new Date()
-    },
-    {
-      id: '125',
-      name: 'Sally',
-      email: 'sally@gmail.com',
-      password: 'bananas',
-      entries: 0,
-      joined: new Date()
-    }
-  ],
-  login: [
-    {
-      id: '987',
-      hash: '',
-      email: 'john@gmail.com'
-    }
-  ]
-};
-
 app.get('/', (req, res) => {
   res.send(dataBase.users);
 });
 
 // Signin user given the correct object (manually for now)
 app.post('/signin', (req, res) => {
-  // Load hash from your password DB.
-  bcrypt.compare('apples', '$2a$10$TYpP1w3iyH3jAaIwyNfEUuTvv6pyIUlyJgbq8alCHAzgqJckyOXBW', function(
-    err,
-    res
-  ) {
-    console.log('First Guess: ', res);
-  });
-  bcrypt.compare(
-    'veggies',
-    '$2a$10$TYpP1w3iyH3jAaIwyNfEUuTvv6pyIUlyJgbq8alCHAzgqJckyOXBW',
-    function(err, res) {
-      console.log('Second Guess: ', res);
-    }
-  );
+  db.select('email', 'hash')
+    .from('login')
+    .where('email', '=', req.body.email)
+    .then(data => {
+      // Load hash from your password DB.
+      const isValid = bcrypt.compareSync(req.body.password, data[0].hash); // true
 
-  if (
-    req.body.email === dataBase.users[0].email &&
-    req.body.password === dataBase.users[0].password
-  ) {
-    res.json(dataBase.users[0]);
-  } else {
-    res.status(400).json('Error logging in');
-  }
-  res.json('Sign In');
+      if (isValid) {
+        return db
+          .select('*')
+          .from('users')
+          .where('email', '=', req.body.email)
+          .then(user => {
+            res.json(user[0]);
+          })
+          .catch(err => res.status(400).json('Unable to get user'));
+      } else {
+        return res.status(400).json('Incorrect username and/or password');
+      }
+    })
+    .catch(err => res.status(400).json('Wrong credentials'));
 });
 
 // Register user given all fields
 app.post('/register', (req, res) => {
   const { email, name, password } = req.body;
 
-  db('users')
-    .returning('*')
-    .insert({
-      email: email,
-      name: name,
-      joined: new Date()
-    })
-    .then(user => {
-      res.json(user[0]);
-    })
-    .catch(error => res.status(400).json('Unable to register user'));
+  // Store hash in your password DB
+  const hash = bcrypt.hashSync(password);
+
+  // Transactions are used to rollback any commits to a DB that would otherwise result in an error.
+  db.transaction(trx => {
+    trx
+      .insert({
+        hash: hash,
+        email: email
+      })
+      .into('login')
+      .returning('email')
+      .then(loginEmail => {
+        return trx('users')
+          .returning('*')
+          .insert({
+            email: loginEmail[0],
+            name: name,
+            joined: new Date()
+          })
+          .then(user => {
+            res.json(user[0]);
+          });
+      })
+      .then(trx.commit)
+      .catch(trx.rollback);
+  }).catch(error => res.status(400).json('Unable to register user'));
 });
 
 app.get('/profile/:id', (req, res) => {
@@ -121,18 +98,14 @@ app.get('/profile/:id', (req, res) => {
 
 app.put('/image', (req, res) => {
   const { id } = req.body;
-  let found = false;
-
-  dataBase.users.forEach(user => {
-    if (user.id === id) {
-      found = true;
-      user.entries++;
-      return res.json(user.entries);
-    }
-  });
-  if (!found) {
-    res.status(404).json('User not found');
-  }
+  db('users')
+    .where('id', '=', id)
+    .increment('entries', 1)
+    .returning('entries')
+    .then(entries => {
+      res.json(entries[0]);
+    })
+    .catch(error => res.status(400).json('Unable to get entries'));
 });
 
 // // Load hash from your password DB.
