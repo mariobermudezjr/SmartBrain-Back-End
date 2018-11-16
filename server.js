@@ -24,10 +24,9 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// app.get('/', (req, res) => {
-//   // res.send(database.users);
-//   console.log('Inside Root directory!');
-// });
+app.get('/', (req, res) => {
+  res.send('It is working');
+});
 
 // Signin user given the correct object (manually for now)
 app.post('/signin', signIn.handleSignIn(db, bcrypt));
