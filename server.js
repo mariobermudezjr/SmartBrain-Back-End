@@ -52,6 +52,6 @@ app.post('/imageurl', (req, res) => {
 //     // res = false
 // });
 
-app.listen(3000, () => {
-  console.log('App is running on app 3000');
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`App is running on port ${process.env.PORT} or 3000`);
 });
