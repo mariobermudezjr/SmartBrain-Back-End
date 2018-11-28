@@ -1,7 +1,10 @@
 {
   "name": "smart_brain_api",
   "version": "1.0.0",
-  "description": "",
+  "engines": {
+    "node": "8.12.0"
+  },
+  "description": "My first login server with database.",
   "main": "scripts.js",
   "scripts": {
     "start": "node server.js"
