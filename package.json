@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "ajv": "^6.5.5",
     "bcrypt-nodejs": "0.0.3",
     "body-parser": "^1.18.3",
     "clarifai": "^2.9.0",
